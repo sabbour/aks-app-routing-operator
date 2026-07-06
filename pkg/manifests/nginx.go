@@ -28,11 +28,11 @@ var (
 	nginxVersionsAscending = []NginxIngressVersion{nginx1_13_7}
 	LatestNginxVersion     = nginxVersionsAscending[len(nginxVersionsAscending)-1]
 
-	dalecNginx1_13_9 = NginxIngressVersion{
-		name: "v1.13.9",
-		tag:  "v1.13.9",
+	dalecNginx1_13_10 = NginxIngressVersion{
+		name: "v1.13.10",
+		tag:  "v1.13.10",
 	}
-	dalecNginxVersionsAscending = []NginxIngressVersion{dalecNginx1_13_9}
+	dalecNginxVersionsAscending = []NginxIngressVersion{dalecNginx1_13_10}
 	LatestDalecNginxVersion     = dalecNginxVersionsAscending[len(dalecNginxVersionsAscending)-1]
 
 	nginxImagePath      = "/oss/kubernetes/ingress/nginx-ingress-controller:"
