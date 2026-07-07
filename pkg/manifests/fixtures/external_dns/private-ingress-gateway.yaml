@@ -177,7 +177,7 @@ spec:
                 operator: In
                 values:
                 - linux
-              - key: kubernetes.azure.com/hobovm
+              - key: kubernetes.azure.com/hostedvm
                 operator: NotIn
                 values:
                 - "true"
@@ -192,7 +192,7 @@ spec:
         - --source=ingress
         - --domain-filter=test-three.com
         - --domain-filter=test-four.com
-        image: /oss/v2/kubernetes/external-dns:v0.20.0
+        image: /oss/v2/kubernetes/external-dns:v0.21.0
         livenessProbe:
           failureThreshold: 3
           httpGet:

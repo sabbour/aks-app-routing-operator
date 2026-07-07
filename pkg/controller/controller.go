@@ -156,6 +156,13 @@ func NewManagerForRestConfig(conf *config.Config, rc *rest.Config) (ctrl.Manager
 		return nil, fmt.Errorf("loading CRDs: %w", err)
 	}
 
+	if !conf.EnableDefaultDomain {
+		if err := dns.CleanDefaultDomainDNS(context.Background(), cl, conf, setupLog); err != nil {
+			setupLog.Error(err, "failed to clean up disabled default domain dns resources")
+			return nil, fmt.Errorf("cleaning up disabled default domain dns resources: %w", err)
+		}
+	}
+
 	if err := setupIndexers(m, setupLog, conf); err != nil {
 		setupLog.Error(err, "unable to setup indexers")
 		return nil, fmt.Errorf("setting up indexers: %w", err)
@@ -279,6 +286,7 @@ func setupControllers(mgr ctrl.Manager, conf *config.Config, lgr logr.Logger, cl
 				Opts: defaultdomain.Opts{
 					ServerAddress: conf.DefaultDomainServerAddress,
 				},
+				CacheTTL: conf.DefaultDomainCertCacheTTL,
 			},
 			mgr.GetLogger().WithName("default-domain-client"),
 		)

@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	// cacheTTL is the time-to-live for cached certificates (6 hours)
-	cacheTTL = 6 * time.Hour
-	// jitterRatio is the ratio of jitter to add to cache TTL (0.0833 = ~30 min for 6 hour TTL)
+	// DefaultCacheTTL is the default time-to-live for cached certificates.
+	DefaultCacheTTL = 15 * time.Minute
+	// jitterRatio is the ratio of jitter to add to cache TTL.
 	jitterRatio = 0.0833
 	// initialJitter is the maximum jitter for the initial fetch (5 minutes)
 	initialJitter = 5 * time.Minute
@@ -31,6 +31,7 @@ const (
 // CachedClientOpts contains configuration options for the cached client
 type CachedClientOpts struct {
 	Opts
+	CacheTTL time.Duration
 }
 
 // CachedClient is a client that caches TLS certificates with automatic refresh
@@ -50,6 +51,9 @@ type CachedClient struct {
 // NewCachedClient creates a new cached client with automatic refresh
 func NewCachedClient(ctx context.Context, opts CachedClientOpts, logger logr.Logger) *CachedClient {
 	childCtx, cancel := context.WithCancel(ctx)
+	if opts.CacheTTL <= 0 {
+		opts.CacheTTL = DefaultCacheTTL
+	}
 
 	c := &CachedClient{
 		client:  NewClient(opts.Opts, logger),
@@ -73,10 +77,19 @@ func (c *CachedClient) GetTLSCertificate(ctx context.Context) (*TLSCertificate, 
 
 	// Check if we have a valid cached certificate
 	if c.cache != nil && time.Now().Before(c.cacheExp) {
+		c.logger.Info("serving TLS certificate from cache",
+			"expiresAt", c.cacheExp.UTC().Format(time.RFC3339),
+			"validFor", time.Until(c.cacheExp).Truncate(time.Second).String())
 		return c.cache, nil
 	}
 
 	// Cache expired or not present, fetch with lock held to prevent concurrent fetches
+	if c.cache == nil {
+		c.logger.Info("cache empty, fetching TLS certificate")
+	} else {
+		c.logger.Info("cache expired, fetching fresh TLS certificate",
+			"expiredAt", c.cacheExp.UTC().Format(time.RFC3339))
+	}
 	return c.fetchWithRetryLocked(ctx)
 }
 
@@ -119,15 +132,20 @@ func (c *CachedClient) fetchWithRetryLocked(ctx context.Context) (*TLSCertificat
 
 		if err == nil {
 			// Success! Update cache and reset health tracking
-			ttl := util.Jitter(cacheTTL, jitterRatio)
+			ttl := util.Jitter(c.opts.CacheTTL, jitterRatio)
+			wasUnhealthy := !c.healthy
 			c.cache = cert
 			c.cacheExp = time.Now().Add(ttl)
 			c.consecutiveFails = 0
 			c.healthy = true
 
 			c.logger.Info("updated certificate cache",
-				"ttl", ttl,
-				"expiresAt", c.cacheExp)
+				"attempt", attempt+1,
+				"ttl", ttl.Truncate(time.Second).String(),
+				"expiresAt", c.cacheExp.UTC().Format(time.RFC3339))
+			if wasUnhealthy {
+				c.logger.Info("default domain client recovered and is healthy again")
+			}
 			return cert, nil
 		}
 
@@ -136,26 +154,28 @@ func (c *CachedClient) fetchWithRetryLocked(ctx context.Context) (*TLSCertificat
 			// 404 is a valid state (cert not ready yet), don't mark as unhealthy
 			c.consecutiveFails = 0
 			c.healthy = true
-			c.logger.Info("certificate not found (404), service is reachable")
+			c.logger.Info("certificate not found (404), service is reachable but certificate is not issued yet")
 			return nil, err
 		}
 
 		lastErr = err
 		c.logger.Error(err, "failed to fetch TLS certificate",
 			"attempt", attempt+1,
-			"maxRetries", maxRetries)
+			"maxRetries", maxRetries,
+			"consecutiveFails", c.consecutiveFails+1)
 
 		// Update health on each failed attempt
 		c.consecutiveFails++
-		if c.consecutiveFails >= maxRetries {
+		if c.consecutiveFails >= maxRetries && c.healthy {
 			c.healthy = false
-			c.logger.Error(nil, "client marked unhealthy after consecutive failed attempts",
+			c.logger.Error(nil, "default domain client marked UNHEALTHY after consecutive failed attempts",
 				"consecutiveFails", c.consecutiveFails,
 				"maxRetries", maxRetries)
 		}
 	}
 
 	// All retries failed
+	c.logger.Error(lastErr, "exhausted all retries fetching TLS certificate", "maxRetries", maxRetries)
 	return nil, fmt.Errorf("failed to fetch TLS certificate after %d attempts: %w", maxRetries, lastErr)
 }
 
@@ -163,20 +183,22 @@ func (c *CachedClient) fetchWithRetryLocked(ctx context.Context) (*TLSCertificat
 func (c *CachedClient) refreshLoop() {
 	// Add initial jitter to avoid thundering herd on startup
 	initialDelay := time.Duration(rand.Int63n(int64(initialJitter)))
-	c.logger.Info("starting certificate refresh loop", "initialDelay", initialDelay)
+	c.logger.Info("starting background certificate refresh loop", "initialDelay", initialDelay.Truncate(time.Second).String())
 
 	select {
 	case <-c.ctx.Done():
+		c.logger.Info("certificate refresh loop cancelled before initial fetch")
 		return
 	case <-time.After(initialDelay):
 	}
 
 	// Initial fetch
+	c.logger.Info("performing initial certificate fetch")
 	c.mu.Lock()
 	_, err := c.fetchWithRetryLocked(c.ctx)
 	c.mu.Unlock()
 	if err != nil {
-		c.logger.Error(err, "initial certificate fetch failed")
+		c.logger.Error(err, "initial certificate fetch failed, will retry on next refresh")
 	}
 
 	// Periodic refresh
@@ -187,7 +209,7 @@ func (c *CachedClient) refreshLoop() {
 
 		// If cache not set yet, use a default interval
 		if nextRefresh.IsZero() {
-			nextRefresh = time.Now().Add(cacheTTL)
+			nextRefresh = time.Now().Add(c.opts.CacheTTL)
 		}
 
 		waitDuration := time.Until(nextRefresh)
@@ -195,18 +217,21 @@ func (c *CachedClient) refreshLoop() {
 			waitDuration = 0
 		}
 
-		c.logger.Info("scheduling next certificate refresh", "wait", waitDuration)
+		c.logger.Info("scheduling next background certificate refresh",
+			"wait", waitDuration.Truncate(time.Second).String(),
+			"refreshAt", nextRefresh.UTC().Format(time.RFC3339))
 
 		select {
 		case <-c.ctx.Done():
-			c.logger.Info("stopping certificate refresh loop")
+			c.logger.Info("stopping background certificate refresh loop")
 			return
 		case <-time.After(waitDuration):
+			c.logger.Info("performing scheduled background certificate refresh")
 			c.mu.Lock()
 			_, err := c.fetchWithRetryLocked(c.ctx)
 			c.mu.Unlock()
 			if err != nil {
-				c.logger.Error(err, "periodic certificate refresh failed")
+				c.logger.Error(err, "scheduled background certificate refresh failed")
 			}
 		}
 	}

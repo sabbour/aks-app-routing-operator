@@ -3,8 +3,11 @@ package infra
 import "fmt"
 
 const (
-	// NumGatewayZones is the number of managed identity zones to provision and test for gateway tests
-	NumGatewayZones = 3
+	// NumGatewayZones is the number of managed identity zones to provision for gateway tests.
+	// Two zones are enough to validate multi-zone fanout while avoiding a third duplicate set of
+	// DNS zones, Key Vault certificates, role assignments, federated credentials, Gateway resources,
+	// client readiness waits, and DNS cleanup waits in every gateway e2e run.
+	NumGatewayZones = 2
 
 	// GatewayClusterNsPrefix is the prefix for cluster-scoped gateway test namespaces (one per zone)
 	GatewayClusterNsPrefix = "gateway-cluster-ns"

@@ -28,11 +28,11 @@ var (
 	nginxVersionsAscending = []NginxIngressVersion{nginx1_13_7}
 	LatestNginxVersion     = nginxVersionsAscending[len(nginxVersionsAscending)-1]
 
-	dalecNginx1_13_9 = NginxIngressVersion{
-		name: "v1.13.9",
-		tag:  "v1.13.9",
+	dalecNginx1_13_10 = NginxIngressVersion{
+		name: "v1.13.10",
+		tag:  "v1.13.10",
 	}
-	dalecNginxVersionsAscending = []NginxIngressVersion{dalecNginx1_13_9}
+	dalecNginxVersionsAscending = []NginxIngressVersion{dalecNginx1_13_10}
 	LatestDalecNginxVersion     = dalecNginxVersionsAscending[len(dalecNginxVersionsAscending)-1]
 
 	nginxImagePath      = "/oss/kubernetes/ingress/nginx-ingress-controller:"
@@ -427,6 +427,14 @@ func newNginxIngressControllerDeployment(conf *config.Config, ingressConfig *Ngi
 	}
 	if !conf.DisableOSM {
 		podAnnotations["openservicemesh.io/sidecar-injection"] = "disabled"
+	}
+	if conf.EnableDalecNginx {
+		// opt the pod out of Dynatrace injection; the namespace-level annotation
+		// is ignored by the Dynatrace operator, which only reads these from the
+		// pod template. dynatrace.com/inject is the master switch; the oneagent
+		// annotation additionally opts out of OneAgent code modules specifically.
+		podAnnotations["dynatrace.com/inject"] = "false"
+		podAnnotations["oneagent.dynatrace.com/inject"] = "false"
 	}
 
 	for k, v := range promAnnotations {

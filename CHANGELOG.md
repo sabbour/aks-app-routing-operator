@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.25] - 2026-06-15
+
+### Added
+- clean up default domain external dns when turned off - [link](https://github.com/Azure/aks-app-routing-operator/pull/605)
+- better logging for default domain - [link](https://github.com/Azure/aks-app-routing-operator/commit/be2a8562d4fc090eb8d2b7c7e650becd51807033)
+- more visibibility into upsert default domain cert errors - [link](https://github.com/Azure/aks-app-routing-operator/commit/10857ae8bc7a20906435995a21abf1a4e70e791f)
+
+## [0.2.24] - 2026-06-05
+
+### Changed
+- switch from attempting to exclude dynatrace from app-routing-system ns switch to explicitly disallowing on ingress-nginx pods - [link](https://github.com/Azure/aks-app-routing-operator/pull/602)
+
+## [0.2.23] - 2026-06-01
+
+### Changed
+- exclude dynatrace from app-routing-system ns - [link](https://github.com/Azure/aks-app-routing-operator/pull/598)
+- bumped go to 1.25.10 - [link](https://github.com/Azure/aks-app-routing-operator/pull/600)
+
+### Fixed
+- fix aks hobo label - [link](https://github.com/Azure/aks-app-routing-operator/pull/594)
+
+## [0.2.22] - 2026-04-24
+
+### Changed
+- bumped external dns to v0.21.0 - [link](https://github.com/Azure/aks-app-routing-operator/pull/585)
+- bumped go to 1.25.9 - [link](https://github.com/Azure/aks-app-routing-operator/pull/588)
+
 ## [0.2.21] - 2026-04-16
 
 ### Added
