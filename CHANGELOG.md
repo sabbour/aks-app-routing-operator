@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - bumped dalec ingress-nginx image to v1.13.10 - [link](https://github.com/Azure/aks-app-routing-operator/pull/614)
+- bumped Go to 1.25.11 and bumped golang.org/x/crypto and golang.org/x/net for CVE fixes - [link](https://github.com/Azure/aks-app-routing-operator/pull/616)
 
 ## [0.2.25] - 2026-06-15
 
