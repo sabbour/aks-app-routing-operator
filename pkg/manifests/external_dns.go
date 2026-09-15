@@ -631,10 +631,7 @@ func newExternalDNSDeployment(conf *config.Config, externalDnsConfig *ExternalDn
 	deploymentArgs = append(deploymentArgs, resourceTypeArgs...)
 	deploymentArgs = append(deploymentArgs, domainFilters...)
 	deploymentArgs = append(deploymentArgs, namespaceFilterArgs(externalDnsConfig)...)
-	minEventSyncInterval := maxMinEventSyncInterval
-	if conf.DnsSyncInterval < minEventSyncInterval {
-		minEventSyncInterval = conf.DnsSyncInterval
-	}
+	minEventSyncInterval := min(conf.DnsSyncInterval, maxMinEventSyncInterval)
 	deploymentArgs = append(deploymentArgs,
 		"--events",
 		"--min-event-sync-interval="+minEventSyncInterval.String(),
