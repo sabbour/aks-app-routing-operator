@@ -5,10 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.27] - 2026-08-04
+## [Unreleased]
 
 ### Added
-- enable event-driven reconciliation for managed external-dns - [link](https://github.com/Azure/aks-app-routing-operator/pull/621)
+- enable event-driven reconciliation for managed external-dns - [link](https://github.com/Azure/aks-app-routing-operator/pull/622)
+
+## [0.2.27] - 2026-08-04
 
 - pins dalec ingress-nginx image to revision - [link](https://github.com/Azure/aks-app-routing-operator/pull/618)
 
